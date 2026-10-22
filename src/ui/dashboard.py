@@ -281,6 +281,8 @@ with tab5:
     adapter = get_llm_adapter()
     evaluator = AudienceEvaluator(db_loader)
 
+    st.warning("⚠️ **Privacy Safeguard**: Do NOT input personal names, real customer email addresses, credentials, or secrets. The model only receives general audience criteria and allowlisted schema definitions.")
+
     # Sample query presets
     st.write("**Quick Example Prompts:**")
     p_col1, p_col2, p_col3, p_col4 = st.columns(4)
@@ -303,9 +305,10 @@ with tab5:
         st.session_state.ai_preview_result = None
         try:
             with st.spinner("Interpreting requirement and validating schema..."):
-                proposal, mode = adapter.interpret_request(user_prompt)
+                proposal, mode, metadata = adapter.interpret_request(user_prompt)
                 st.session_state.ai_proposal = proposal
                 st.session_state.ai_mode = mode
+                st.session_state.ai_metadata = metadata
         except Exception as e:
             st.error(f"Interpretation failed: {e}")
 
@@ -313,16 +316,19 @@ with tab5:
     if st.session_state.ai_proposal:
         proposal: ProposedSegment = st.session_state.ai_proposal
         mode_label = st.session_state.ai_mode
+        ai_meta = getattr(st.session_state, "ai_metadata", {}) or {}
 
         st.divider()
 
         # Provider Status Badge
-        b_col1, b_col2 = st.columns([1, 4])
+        b_col1, b_col2 = st.columns([2, 3])
+        latency_ms = ai_meta.get("latency_ms")
+        latency_str = f" ({latency_ms:.1f}ms)" if latency_ms is not None else ""
         with b_col1:
             if "mock" in mode_label.lower():
-                st.warning(f"🏷️ **Status**: `{mode_label}`")
+                st.warning(f"🏷️ **Status**: `{mode_label}`{latency_str}")
             else:
-                st.success(f"🏷️ **Status**: `{mode_label}`")
+                st.success(f"🏷️ **Status**: `{mode_label}`{latency_str}")
         with b_col2:
             st.markdown(f"**Proposed Segment**: `{proposal.name}` — *{proposal.description}*")
 

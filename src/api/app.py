@@ -19,7 +19,15 @@ from pydantic import BaseModel, Field
 
 from src.pipeline.db_loader import DatabaseLoader
 from src.ai.schema import ProposedSegment
-from src.ai.provider import get_llm_adapter
+from src.ai.provider import (
+    AuthenticationError,
+    ConfigurationError,
+    ProviderPayloadError,
+    ProviderRefusalError,
+    ProviderTimeoutError,
+    RateLimitError,
+    get_llm_adapter,
+)
 from src.ai.evaluator import AudienceEvaluator
 
 app = FastAPI(
@@ -382,8 +390,18 @@ def propose_audience(req: AIProposeRequest) -> AIProposeResponse:
     """
     try:
         adapter = get_llm_adapter()
-        proposal, mode = adapter.interpret_request(req.query)
+        proposal, mode, metadata = adapter.interpret_request(req.query)
         return AIProposeResponse(proposal=proposal, provider_mode=mode)
+    except ConfigurationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"LLM Configuration Error: {str(e)}",
+        )
+    except (AuthenticationError, RateLimitError, ProviderRefusalError, ProviderTimeoutError, ProviderPayloadError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Live LLM Provider Error: {str(e)}",
+        )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:

@@ -1,46 +1,56 @@
 """
 Fan360 AI Audience Requirement Schema
 Defines strict Pydantic models for natural-language segment proposals.
-Rejects unknown fields, unsupported operators, type mismatches, and extra properties.
+Rejects unknown fields, unsupported operators, non-finite numbers, type mismatches, and extra properties.
 """
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-# Allowlisted fields derived strictly from fan_profiles schema and business rules
+# Allowlisted fields derived strictly from fan_profiles schema and documented business rules
 ALLOWLISTED_FIELDS = {
     "valid_completed_order_count": {
         "type": int,
         "description": "Total number of completed merchandise purchases.",
         "supported_operators": [">=", ">", "==", "<=", "<", "!="],
+        "min_value": 0,
+        "max_value": 100000,
     },
     "total_valid_spend": {
         "type": (int, float),
         "description": "Accumulated dollar spend on completed merchandise purchases (USD).",
         "supported_operators": [">=", ">", "<=", "<"],
+        "min_value": 0.0,
+        "max_value": 10000000.0,
     },
     "country": {
         "type": str,
         "description": "Three-letter ISO country code (e.g. USA, GBR, FRA, BRA, DEU).",
         "supported_operators": ["==", "!=", "in"],
+        "max_length": 3,
     },
     "language": {
         "type": str,
         "description": "Two-letter ISO language code (e.g. en, fr, es, de, pt).",
         "supported_operators": ["==", "!=", "in"],
+        "max_length": 2,
     },
     "preferred_driver": {
         "type": str,
         "description": "Fictional driver name (e.g. Lucas Rossi, Elena Vance, Marcus Sterling).",
         "supported_operators": ["==", "!="],
+        "max_length": 64,
     },
     "days_since_last_activity": {
         "type": int,
         "description": "Days since last web event, email interaction, or order.",
         "supported_operators": [">", ">=", "<=", "<"],
+        "min_value": 0,
+        "max_value": 36500,
     },
 }
 
@@ -89,25 +99,46 @@ class SegmentFilter(BaseModel):
                 f"Supported: {field_meta['supported_operators']}"
             )
 
-        # Validate value type
+        # Validate value type & finite values
         expected_type = field_meta["type"]
         if self.operator == "in":
             if not isinstance(self.value, list) or not all(isinstance(x, str) for x in self.value):
                 raise ValueError(f"Operator 'in' for field '{self.field}' requires a list of strings.")
             if len(self.value) == 0:
                 raise ValueError("List for 'in' operator cannot be empty.")
+            if len(self.value) > 10:
+                raise ValueError("List for 'in' operator cannot exceed 10 items.")
+            for item in self.value:
+                if len(item.strip()) == 0 or len(item) > field_meta.get("max_length", 64):
+                    raise ValueError(f"Invalid string length in list for field '{self.field}'.")
         else:
             if expected_type == (int, float):
                 if not isinstance(self.value, (int, float)) or isinstance(self.value, bool):
                     raise ValueError(f"Value for numeric field '{self.field}' must be a number.")
+                if not math.isfinite(self.value):
+                    raise ValueError(f"Value for numeric field '{self.field}' must be a finite number (not NaN or Inf).")
+                min_v = field_meta.get("min_value", 0.0)
+                max_v = field_meta.get("max_value", 1e9)
+                if self.value < min_v or self.value > max_v:
+                    raise ValueError(f"Value {self.value} for field '{self.field}' is outside valid range [{min_v}, {max_v}].")
+
             elif expected_type == int:
                 if not isinstance(self.value, int) or isinstance(self.value, bool):
                     raise ValueError(f"Value for integer field '{self.field}' must be an integer.")
+                min_v = field_meta.get("min_value", 0)
+                max_v = field_meta.get("max_value", 1000000)
+                if self.value < min_v or self.value > max_v:
+                    raise ValueError(f"Value {self.value} for field '{self.field}' is outside valid range [{min_v}, {max_v}].")
+
             elif expected_type == str:
                 if not isinstance(self.value, str):
                     raise ValueError(f"Value for field '{self.field}' must be a string.")
-                if len(self.value.strip()) == 0:
+                clean_str = self.value.strip()
+                if len(clean_str) == 0:
                     raise ValueError(f"Value for field '{self.field}' cannot be empty.")
+                max_len = field_meta.get("max_length", 128)
+                if len(clean_str) > max_len:
+                    raise ValueError(f"Value for field '{self.field}' exceeds max length of {max_len} characters.")
 
         return self
 
