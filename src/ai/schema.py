@@ -79,12 +79,34 @@ class SegmentFilter(BaseModel):
     @field_validator("operator")
     @classmethod
     def validate_operator(cls, v: str) -> str:
-        clean_op = v.strip()
-        if clean_op not in SUPPORTED_OPERATORS:
+        clean_op = v.strip().lower()
+        operator_aliases = {
+            "gte": ">=",
+            "greater_than_or_equal": ">=",
+            ">=": ">=",
+            "lte": "<=",
+            "less_than_or_equal": "<=",
+            "<=": "<=",
+            "eq": "==",
+            "equals": "==",
+            "=": "==",
+            "==": "==",
+            "gt": ">",
+            "greater_than": ">",
+            ">": ">",
+            "lt": "<",
+            "less_than": "<",
+            "<": "<",
+            "neq": "!=",
+            "!=": "!=",
+            "in": "in",
+        }
+        resolved = operator_aliases.get(clean_op, v.strip())
+        if resolved not in SUPPORTED_OPERATORS:
             raise ValueError(
                 f"Operator '{v}' is unsupported. Supported operators are: {SUPPORTED_OPERATORS}"
             )
-        return clean_op
+        return resolved
 
     @model_validator(mode="after")
     def validate_field_operator_and_type(self) -> SegmentFilter:
@@ -164,6 +186,14 @@ class ProposedSegment(BaseModel):
         max_length=256,
         description="Question to present to the user when clarification is required.",
     )
+
+    @field_validator("name", "description", "explanation", mode="before")
+    @classmethod
+    def sanitize_strings_before_validation(cls, v: Any) -> str:
+        s = str(v).strip() if v is not None else ""
+        if not s:
+            return "Audience Requirement Proposal"
+        return s
 
     @field_validator("name", "description", "explanation")
     @classmethod
