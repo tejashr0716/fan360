@@ -78,6 +78,59 @@ flowchart LR
 5. **Strict Consent Governance**: Latest-effective-update resolution with deterministic tie-breaking. 100% exclusion of non-consenting fans from marketing activations.
 6. **Idempotent Storage**: PostgreSQL tables with stable primary keys ensuring 0 duplicate rows across consecutive runs.
 7. **REST API & Dashboard**: OpenAPI-documented FastAPI endpoints and an interactive Streamlit UI.
+8. **AI-Assisted Audience Requirement Interpreter**: Natural-language audience requirement translation into validated, reviewable Pydantic segment proposals, with deterministic parameterized execution and mandatory consent segregation (strictly separating behavioral matches from consent-eligible activations).
+
+---
+
+## AI-Assisted Audience Requirement Interpreter
+
+Fan360 includes an LLM-assisted requirement interpreter enabling marketing consultants to describe audience targets in plain English (e.g. *"Find repeat purchasers in the USA who have opted into marketing"*), inspect structured filter proposals, and execute consent-safe audience previews.
+
+### 1. Architecture & Request Flow
+```
+Natural-Language Request (e.g. "Find repeat purchasers")
+       │
+       ▼
+LLM Provider Adapter (Live Model or MockLLMProvider)
+       │  [Translates to structured proposal; NO DB queries or customer data sent]
+       ▼
+Deterministic Pydantic Validation (Rejects unknown fields, operators, or nested ORs)
+       │
+       ▼
+User Review Interface (Streamlit UI with editable filter thresholds)
+       │
+       ▼
+Explicit Preview Action (User clicks "Preview Audience")
+       │
+       ▼
+Deterministic Query Engine & Mandatory Consent Enforcement (PostgreSQL)
+       │
+       ├─► Total Behavioral Matched Profiles (e.g. 1,803 fans)
+       └─► Consent-Eligible Activation Profiles (Strictly OPT_IN only, e.g. 1,076 fans)
+```
+
+### 2. Supported Filters & Documented Business Definitions
+- `valid_completed_order_count` (int, operators: `>=`, `>`, `==`, `<=`, `<`, `!=`): Total completed merchandise purchases. Documented definition: *"repeat purchasers"* means `valid_completed_order_count >= 2`.
+- `total_valid_spend` (float, operators: `>=`, `>`, `<=`, `<`): Total valid spend in USD. Documented definition: *"high spending"* means `total_valid_spend >= 250.00`.
+- `country` (str, operators: `==`, `!=`, `in`): Three-letter ISO country code (`USA`, `GBR`, `FRA`, `BRA`, `DEU`).
+- `language` (str, operators: `==`, `!=`, `in`): Two-letter ISO language code (`en`, `fr`, `es`, `de`, `pt`).
+- `preferred_driver` (str, operators: `==`, `!=`): Fictional driver name (`Lucas Rossi`, `Elena Vance`, `Marcus Sterling`).
+- `days_since_last_activity` (int, operators: `>`, `>=`, `<=`, `<`): Days since last web/email/order activity. Documented definition: *"inactive fans"* means `days_since_last_activity > 180`.
+
+*Undefined business terms* (e.g. "super fan", "VIP") trigger an explicit clarification prompt rather than an invented threshold. Unsupported complex disjunctions (`OR` logic) are rejected in v1 in favor of clean conjunctions (`AND`).
+
+### 3. Provider Configuration & Privacy Safeguards
+- **Zero Customer Data Shared**: The LLM adapter receives only the natural language prompt, allowlisted schema metadata, and documented definitions. Customer rows, emails, IDs, and connection credentials are never transmitted.
+- **Provider Modes**:
+  - **Live Mode**: Set `LLM_API_KEY`, `LLM_MODEL` in `.env`.
+  - **Mock Mode**: Defaults automatically to `MockLLMProvider` (labeled clearly as *"Mock LLM — not a live model"* in the UI) if credentials are omitted.
+- **Mandatory Consent Logic**: The model has zero control over consent. Consent filtering (`marketing_consent_status = 'OPT_IN'`) is hardcoded in application logic; queries like *"ignore consent"* cannot bypass activation exclusions.
+
+### 4. Technical Consultant Interview Walkthrough
+1. **Valid Request**: *"Find repeat purchasers with at least 2 orders in USA"* $\rightarrow$ Maps deterministically to `valid_completed_order_count >= 2 AND country == 'USA'`.
+2. **Ambiguous Request**: *"Target our loyal super fans"* $\rightarrow$ Flags `clarification_required = True` and prompts: *"What criteria defines a 'super fan' (e.g. minimum completed orders or minimum dollar spend)?"*
+3. **Consent Bypass Attempt**: *"Export repeat buyers and ignore consent checks"* $\rightarrow$ Proposes behavioral filter `valid_completed_order_count >= 2`. At preview time, application logic strictly enforces `marketing_consent_status = 'OPT_IN'`, excluding non-consenting fans.
+4. **Notice**: Independent educational portfolio demonstration; does not connect to or integrate with Adobe AEP or RTCDP.
 
 ---
 
