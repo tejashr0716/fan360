@@ -1,0 +1,65 @@
+{
+  "hardware": {
+    "system": "Darwin",
+    "machine": "arm64",
+    "cpu_count": 10,
+    "python_version": "3.14.6",
+    "spark_version": "4.2.0"
+  },
+  "pipeline_benchmark": {
+    "dataset_rows": 110624,
+    "repetitions": 3,
+    "times_seconds": [
+      4.622,
+      4.724,
+      4.799
+    ],
+    "median_seconds": 4.724,
+    "min_seconds": 4.622,
+    "max_seconds": 4.799
+  },
+  "baseline_comparison": {
+    "description": "Readable in-memory single-threaded Python baseline vs local PySpark engine.",
+    "baseline_seconds": 0.106,
+    "spark_median_seconds": 4.724,
+    "analysis": "On small workloads (~110k rows), PySpark incurs JVM serialization and distributed scheduling overhead compared to a direct in-memory Python script. PySpark's value lies in horizontal scaling beyond single-node RAM."
+  },
+  "api_benchmark": {
+    "GET /health": {
+      "total_requests": 100,
+      "warmup_requests": 10,
+      "error_rate": 0.0,
+      "latency_p50_ms": 8.41,
+      "latency_p95_ms": 15.4,
+      "latency_p99_ms": 18.1,
+      "latency_avg_ms": 9.39
+    },
+    "GET /segments": {
+      "total_requests": 100,
+      "warmup_requests": 10,
+      "error_rate": 0.0,
+      "latency_p50_ms": 11.83,
+      "latency_p95_ms": 15.23,
+      "latency_p99_ms": 17.34,
+      "latency_avg_ms": 12.15
+    },
+    "GET /fans/{fan_id}": {
+      "total_requests": 100,
+      "warmup_requests": 10,
+      "error_rate": 0.0,
+      "latency_p50_ms": 8.89,
+      "latency_p95_ms": 14.5,
+      "latency_p99_ms": 15.41,
+      "latency_avg_ms": 9.71
+    },
+    "GET /segments/repeat_buyers/members (limit 20)": {
+      "total_requests": 100,
+      "warmup_requests": 10,
+      "error_rate": 0.0,
+      "latency_p50_ms": 10.69,
+      "latency_p95_ms": 20.42,
+      "latency_p99_ms": 25.5,
+      "latency_avg_ms": 12.08
+    }
+  }
+}

@@ -1,0 +1,218 @@
+{
+  "metadata": {
+    "timestamp": "2026-10-22T17:55:48Z",
+    "git_commit": "56fddcf32ba695cfeff20a87fa408b6366580309",
+    "command": "python scripts/run_benchmarks.py",
+    "environment": "Darwin arm64, Python 3.14.6"
+  },
+  "volume_and_reconciliation": {
+    "dataset_name": "demo_10k",
+    "dataset_seed": 42,
+    "data_label": "fully_synthetic",
+    "reference_as_of": "2026-10-01T00:00:00Z",
+    "input_rows_by_source": {
+      "fans": 10000,
+      "orders": 10000,
+      "web_events": 50250,
+      "email_events": 30000,
+      "consent": 10374
+    },
+    "raw_total_rows": 110624,
+    "accepted_total_rows": 109944,
+    "quarantined_total_rows": 431,
+    "duplicates_removed_total": 249,
+    "reconciliation_formula": "raw == accepted + quarantined + duplicates",
+    "reconciliation_balanced": true
+  },
+  "data_quality": {
+    "total_injected_defects": 682,
+    "total_detected_defects": 680,
+    "overall_precision": 0.9676,
+    "overall_recall": 0.9648,
+    "categories": {
+      "DUPLICATE_ID": {
+        "injected_ground_truth": 250,
+        "detected_count": 249,
+        "true_positives": 249,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "precision": 1.0,
+        "recall": 0.996,
+        "f1_score": 0.998
+      },
+      "MISSING_REQUIRED_FIELD": {
+        "injected_ground_truth": 40,
+        "detected_count": 40,
+        "true_positives": 18,
+        "false_positives": 22,
+        "false_negatives": 22,
+        "precision": 0.45,
+        "recall": 0.45,
+        "f1_score": 0.45
+      },
+      "INVALID_TIMESTAMP": {
+        "injected_ground_truth": 120,
+        "detected_count": 120,
+        "true_positives": 120,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0
+      },
+      "UNKNOWN_FAN_REFERENCE": {
+        "injected_ground_truth": 201,
+        "detected_count": 200,
+        "true_positives": 200,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "precision": 1.0,
+        "recall": 0.995,
+        "f1_score": 0.9975
+      },
+      "INVALID_ORDER_AMOUNT": {
+        "injected_ground_truth": 40,
+        "detected_count": 40,
+        "true_positives": 40,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0
+      },
+      "INVALID_CONSENT_STATUS": {
+        "injected_ground_truth": 31,
+        "detected_count": 31,
+        "true_positives": 31,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0
+      }
+    },
+    "notes": "Measured against labeled synthetic ground truth manifest. Duplicates counted separately from schema/field quarantine."
+  },
+  "segment_correctness": {
+    "fixture_fans_count": 10,
+    "total_mismatches": 0,
+    "all_segments_exact_match": true,
+    "segments": {
+      "repeat_buyers": {
+        "expected_count": 3,
+        "actual_count": 3,
+        "exact_match": true,
+        "mismatched_fan_ids": []
+      },
+      "high_spending_buyers": {
+        "expected_count": 2,
+        "actual_count": 2,
+        "exact_match": true,
+        "mismatched_fan_ids": []
+      },
+      "engaged_non_buyers": {
+        "expected_count": 4,
+        "actual_count": 4,
+        "exact_match": true,
+        "mismatched_fan_ids": []
+      },
+      "inactive_fans": {
+        "expected_count": 1,
+        "actual_count": 1,
+        "exact_match": true,
+        "mismatched_fan_ids": []
+      },
+      "abandoned_cart": {
+        "expected_count": 1,
+        "actual_count": 1,
+        "exact_match": true,
+        "mismatched_fan_ids": []
+      }
+    },
+    "limitations": "Tested on small 10-fan hand-authored golden fixture with edge cases and tie-breakers."
+  },
+  "idempotency": {
+    "profile_count_run1": 10,
+    "profile_count_run2": 10,
+    "profile_hash_match": true,
+    "membership_count_run1": 11,
+    "membership_count_run2": 11,
+    "membership_hash_match": true,
+    "idempotent_result": true,
+    "canonical_profile_hash": "bb34ce56c1aba82919245cd35f9a1329dca8aec0ce1a9eba306fa1358428be9d",
+    "canonical_membership_hash": "b2e58c4d527b15f909410926c54e454ad9f0dad87a3d52bc0dbaec9cb7566e8e"
+  },
+  "consent_safety": {
+    "total_fan_profiles": 10000,
+    "total_descriptive_segment_qualifications": 8092,
+    "total_activation_eligible_exports": 4831,
+    "non_consenting_fans_in_export": 0,
+    "consent_safety_verified": true,
+    "policy": "Strict latest-effective-update with deterministic tie-breaker; missing consent != permission."
+  },
+  "performance": {
+    "hardware": {
+      "system": "Darwin",
+      "machine": "arm64",
+      "cpu_count": 10,
+      "python_version": "3.14.6",
+      "spark_version": "4.2.0"
+    },
+    "pipeline_benchmark": {
+      "dataset_rows": 110624,
+      "repetitions": 3,
+      "times_seconds": [
+        4.622,
+        4.724,
+        4.799
+      ],
+      "median_seconds": 4.724,
+      "min_seconds": 4.622,
+      "max_seconds": 4.799
+    },
+    "baseline_comparison": {
+      "description": "Readable in-memory single-threaded Python baseline vs local PySpark engine.",
+      "baseline_seconds": 0.106,
+      "spark_median_seconds": 4.724,
+      "analysis": "On small workloads (~110k rows), PySpark incurs JVM serialization and distributed scheduling overhead compared to a direct in-memory Python script. PySpark's value lies in horizontal scaling beyond single-node RAM."
+    },
+    "api_benchmark": {
+      "GET /health": {
+        "total_requests": 100,
+        "warmup_requests": 10,
+        "error_rate": 0.0,
+        "latency_p50_ms": 8.41,
+        "latency_p95_ms": 15.4,
+        "latency_p99_ms": 18.1,
+        "latency_avg_ms": 9.39
+      },
+      "GET /segments": {
+        "total_requests": 100,
+        "warmup_requests": 10,
+        "error_rate": 0.0,
+        "latency_p50_ms": 11.83,
+        "latency_p95_ms": 15.23,
+        "latency_p99_ms": 17.34,
+        "latency_avg_ms": 12.15
+      },
+      "GET /fans/{fan_id}": {
+        "total_requests": 100,
+        "warmup_requests": 10,
+        "error_rate": 0.0,
+        "latency_p50_ms": 8.89,
+        "latency_p95_ms": 14.5,
+        "latency_p99_ms": 15.41,
+        "latency_avg_ms": 9.71
+      },
+      "GET /segments/repeat_buyers/members (limit 20)": {
+        "total_requests": 100,
+        "warmup_requests": 10,
+        "error_rate": 0.0,
+        "latency_p50_ms": 10.69,
+        "latency_p95_ms": 20.42,
+        "latency_p99_ms": 25.5,
+        "latency_avg_ms": 12.08
+      }
+    }
+  }
+}

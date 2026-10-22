@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fan360_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fan360
+      POSTGRES_USER: fan360_user
+      POSTGRES_PASSWORD: fan360_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fan360_user -d fan360"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fan360_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      FAN360_DB_HOST: postgres
+      FAN360_DB_PORT: 5432
+      FAN360_DB_NAME: fan360
+      FAN360_DB_USER: fan360_user
+      FAN360_DB_PASSWORD: fan360_password
+    ports:
+      - "8000:8000"
+    command: ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fan360_dashboard
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      FAN360_DB_HOST: postgres
+      FAN360_DB_PORT: 5432
+      FAN360_DB_NAME: fan360
+      FAN360_DB_USER: fan360_user
+      FAN360_DB_PASSWORD: fan360_password
+    ports:
+      - "8501:8501"
+    command: ["streamlit", "run", "src/ui/dashboard.py", "--server.port=8501", "--server.address=0.0.0.0"]
+
+volumes:
+  postgres_data:
