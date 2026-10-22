@@ -1,0 +1,36 @@
+{
+  "quarantined_records": [
+    {
+      "source_table": "orders",
+      "record_id": "ORD_BAD_01",
+      "reason_code": "MISSING_REQUIRED_FIELD"
+    },
+    {
+      "source_table": "orders",
+      "record_id": "ORD_BAD_02",
+      "reason_code": "INVALID_ORDER_AMOUNT"
+    },
+    {
+      "source_table": "web_events",
+      "record_id": "WEB_BAD_01",
+      "reason_code": "UNKNOWN_FAN_REFERENCE"
+    },
+    {
+      "source_table": "email_events",
+      "record_id": "EML_BAD_01",
+      "reason_code": "INVALID_TIMESTAMP"
+    },
+    {
+      "source_table": "consent",
+      "record_id": "CNS_BAD_01",
+      "reason_code": "INVALID_CONSENT_STATUS"
+    }
+  ],
+  "deduplicated_events": [
+    {
+      "source_table": "web_events",
+      "record_id": "WEB_DUP_01",
+      "duplicates_removed": 1
+    }
+  ]
+}

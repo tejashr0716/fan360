@@ -1,0 +1,11 @@
+fan_id,first_name,last_name,email,country,language,preferred_driver,created_at
+FAN_001,Elena,Vance,elena.vance_1@fictional-fans.net,GBR,en,Elena Vance,2026-01-01T10:00:00Z
+FAN_002,Marcus,Rossi,marcus.rossi_2@fictional-fans.net,ITA,it,Marcus Lindholm,2026-05-01T08:00:00Z
+FAN_003,Sofia,Dubois,sofia.dubois_3@fictional-fans.net,FRA,fr,Sofia Al-Mansoor,2025-10-01T12:00:00Z
+FAN_004,Lucas,Silva,lucas.silva_4@fictional-fans.net,BRA,pt,Lucas Rossi,2026-06-01T15:00:00Z
+FAN_005,Pat,Tanaka,pat.tanaka_5@fictional-fans.net,JPN,ja,Elena Vance,2026-07-01T10:00:00Z
+FAN_006,Alex,Weber,alex.weber_6@fictional-fans.net,DEU,de,Marcus Lindholm,2026-02-01T11:00:00Z
+FAN_007,Morgan,Hansen,morgan.hansen_7@fictional-fans.net,USA,en,Sofia Al-Mansoor,2026-08-01T09:00:00Z
+FAN_008,Riley,O'Connor,riley.oconnor_8@fictional-fans.net,AUS,en,Lucas Rossi,2026-04-01T14:00:00Z
+FAN_009,Taylor,Sato,taylor.sato_9@fictional-fans.net,JPN,ja,Elena Vance,2026-03-01T09:00:00Z
+FAN_010,Jordan,Quinn,jordan.quinn_10@fictional-fans.net,CAN,en,Marcus Lindholm,2026-07-10T12:00:00Z

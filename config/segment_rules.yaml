@@ -1,0 +1,45 @@
+# Audience Segment Definitions & Qualification Rules
+# All calculations are evaluated against the pipeline's configured as_of_timestamp.
+
+segments:
+  engaged_non_buyers:
+    name: "Engaged Non-Buyers"
+    description: "Fans with website or email engagement within the past 90 days but 0 completed purchases."
+    rules:
+      window_days: 90
+      min_events: 1
+      max_completed_orders: 0
+    reason_template: "Has {event_count} activity events in past 90d and 0 completed orders."
+
+  repeat_buyers:
+    name: "Repeat Buyers"
+    description: "Fans who have placed 2 or more valid completed merchandise orders."
+    rules:
+      min_completed_orders: 2
+      qualifying_order_status: "COMPLETED"
+    reason_template: "Placed {completed_orders} completed orders (threshold: >= 2)."
+
+  high_spending_buyers:
+    name: "High-Spending Buyers"
+    description: "Fans who have accumulated at least $250.00 USD in valid completed merchandise orders."
+    rules:
+      min_total_spend: 250.00
+      currency: "USD"
+      qualifying_order_status: "COMPLETED"
+    reason_template: "Accumulated ${total_spend:.2f} USD in valid completed spend (threshold: >= $250.00)."
+
+  inactive_fans:
+    name: "Inactive Fans"
+    description: "Fans with no activity (web events, email actions, or orders) within the past 180 days."
+    rules:
+      inactivity_window_days: 180
+    reason_template: "Last activity was {days_since_activity} days ago (inactivity threshold: > 180d) or never active."
+
+  abandoned_cart:
+    name: "Abandoned Cart"
+    description: "Fans who had an add_to_cart event within the past 14 days without a resolving purchase for that cart/session."
+    rules:
+      cart_window_days: 14
+      trigger_event: "add_to_cart"
+      resolving_status: "COMPLETED"
+    reason_template: "Unresolved cart {cart_id} created {cart_age_days} days ago without matching order."

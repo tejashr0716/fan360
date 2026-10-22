@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+*.log
+derby.log
+metastore_db/
+spark-warehouse/
+# Local runtime files (can keep sample data in version control if fixtures)
+# Keep fixtures in tests/fixtures
+data/raw/
+data/processed/
+data/quarantine/

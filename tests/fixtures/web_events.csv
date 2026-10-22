@@ -1,0 +1,11 @@
+event_id,fan_id,session_id,event_type,event_timestamp,page_url,cart_id
+WEB_001,FAN_001,SESS_001,page_view,2026-09-25T11:00:00Z,/store/team-cap,
+WEB_002,FAN_002,SESS_002,page_view,2026-08-15T09:00:00Z,/live-telemetry,
+WEB_003,FAN_002,SESS_003,video_view,2026-09-10T10:00:00Z,/driver/marcus-lindholm,
+WEB_004,FAN_004,SESS_004,add_to_cart,2026-09-22T14:00:00Z,/store/replica-jersey,CART_ABANDON_01
+WEB_005,FAN_005,SESS_005,add_to_cart,2026-09-20T10:00:00Z,/store/diecast-model,CART_RESOLVED_01
+WEB_008,FAN_008,SESS_008,page_view,2026-08-01T10:00:00Z,/race-hub,
+WEB_010,FAN_010,SESS_010,page_view,2026-09-01T10:00:00Z,/store/jacket,
+WEB_DUP_01,FAN_001,SESS_001,page_view,2026-09-26T10:00:00Z,/store,
+WEB_DUP_01,FAN_001,SESS_001,page_view,2026-09-26T10:00:00Z,/store,
+WEB_BAD_01,FAN_GHOST_999,SESS_999,page_view,2026-08-01T10:00:00Z,/race-hub,

@@ -1,0 +1,23 @@
+{
+  "repeat_buyers": [
+    {"fan_id": "FAN_001", "activation_eligible": true, "reason": "Placed 3 completed orders (threshold: >= 2)."},
+    {"fan_id": "FAN_006", "activation_eligible": false, "reason": "Placed 2 completed orders (threshold: >= 2)."},
+    {"fan_id": "FAN_009", "activation_eligible": false, "reason": "Placed 2 completed orders (threshold: >= 2)."}
+  ],
+  "high_spending_buyers": [
+    {"fan_id": "FAN_001", "activation_eligible": true, "reason": "Accumulated $350.00 USD in valid completed spend (threshold: >= $250.00)."},
+    {"fan_id": "FAN_009", "activation_eligible": false, "reason": "Accumulated $350.00 USD in valid completed spend (threshold: >= $250.00)."}
+  ],
+  "engaged_non_buyers": [
+    {"fan_id": "FAN_002", "activation_eligible": true, "reason": "Has 3 activity events in past 90d and 0 completed orders."},
+    {"fan_id": "FAN_004", "activation_eligible": true, "reason": "Has 1 activity events in past 90d and 0 completed orders."},
+    {"fan_id": "FAN_008", "activation_eligible": false, "reason": "Has 1 activity events in past 90d and 0 completed orders."},
+    {"fan_id": "FAN_010", "activation_eligible": false, "reason": "Has 1 activity events in past 90d and 0 completed orders."}
+  ],
+  "inactive_fans": [
+    {"fan_id": "FAN_003", "activation_eligible": false, "reason": "Last activity was 258 days ago (inactivity threshold: > 180d) or never active."}
+  ],
+  "abandoned_cart": [
+    {"fan_id": "FAN_004", "activation_eligible": true, "reason": "Unresolved cart CART_ABANDON_01 created 8 days ago without matching order."}
+  ]
+}

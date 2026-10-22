@@ -1,0 +1,13 @@
+consent_id,fan_id,consent_type,status,update_timestamp,channel
+CNS_001,FAN_001,marketing_email,OPT_IN,2026-01-01T10:05:00Z,web_form
+CNS_002,FAN_002,marketing_email,OPT_IN,2026-05-01T08:05:00Z,web_form
+CNS_003,FAN_003,marketing_email,OPT_OUT,2025-10-01T12:05:00Z,account_settings
+CNS_004,FAN_004,marketing_email,OPT_IN,2026-06-01T15:05:00Z,web_form
+CNS_005,FAN_005,marketing_email,OPT_IN,2026-07-01T10:05:00Z,web_form
+CNS_006,FAN_006,marketing_email,OPT_OUT,2026-02-01T11:05:00Z,account_settings
+CNS_007,FAN_007,marketing_email,OPT_IN,2026-08-01T09:05:00Z,web_form
+CNS_008_A,FAN_008,marketing_email,OPT_IN,2026-04-01T14:05:00Z,web_form
+CNS_008_B,FAN_008,marketing_email,OPT_OUT,2026-07-15T16:00:00Z,unsubscribe_link
+CNS_009_A,FAN_009,marketing_email,OPT_IN,2026-03-01T09:05:00Z,web_form
+CNS_009_B,FAN_009,marketing_email,OPT_OUT,2026-09-28T12:00:00Z,unsubscribe_link
+CNS_BAD_01,FAN_001,marketing_email,MAYBE,2026-05-01T10:00:00Z,web_form

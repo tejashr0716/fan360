@@ -1,0 +1,32 @@
+# Fan360 System Configuration
+app:
+  name: "Fan360 — Motorsport Fan Data & Audience Segmentation Platform"
+  version: "1.0.0"
+  fictional_team: "Apex Velocity Racing"
+  currency: "USD"
+
+pipeline:
+  # Deterministic reference timestamp for all time-window calculations
+  as_of_timestamp: "2026-10-01T00:00:00Z"
+  spark_master: "local[2]"
+  log_level: "WARN"
+  data_dir: "data"
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  quarantine_dir: "data/quarantine"
+  artifacts_dir: "artifacts"
+
+database:
+  host: "localhost"
+  port: 5432
+  dbname: "fan360"
+  user: "tejashr"
+  password: ""
+  sslmode: "prefer"
+  pool_size: 5
+
+api:
+  host: "127.0.0.1"
+  port: 8000
+  max_page_size: 100
+  default_page_size: 20
