@@ -4,7 +4,8 @@
 [![Apache Spark](https://img.shields.io/badge/PySpark-4.2.0-orange.svg)](https://spark.apache.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-1.0-009688.svg)](https://fastapi.tiangolo.com/)
-[![Tests](https://img.shields.io/badge/pytest-17%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/pytest-42%20passed-brightgreen.svg)](tests/)
+[![Live Evaluation](https://img.shields.io/badge/Live%20LLM%20Eval-10%2F10%20(100%25)-blue.svg)](artifacts/live-eval-report.md)
 
 > **Educational Portfolio Project**: Built to demonstrate core competencies in Python, PySpark, SQL, data modeling, automated data quality, REST API design, testing, and translating business requirements into robust technical solutions.
 >
@@ -198,18 +199,24 @@ Every bullet is backed by real execution artifacts in [`artifacts/resume-evidenc
 1. **Consolidated 110,624 multi-channel synthetic customer records across 5 sources into 10,000 unified fan profiles, achieving 100% mathematical reconciliation (109,944 accepted, 431 quarantined, 249 deduplicated) and zero duplicate records across reruns, by developing an idempotent PySpark transformation pipeline with hierarchical schema validation.**
 2. **Engineered an automated data quality and quarantine subsystem that intercepted and triaged synthetic data defects with 99.6% deduplication recall, 100% timestamp/amount recall, and zero double-counting across multi-defect records, by designing a prioritized validation hierarchy enforcing structural, temporal, and referential constraints.**
 3. **Architected an audience segmentation engine generating 8,092 descriptive segment qualifications across 5 behavioral rules with 100% exact match against golden fixtures, while strictly excluding 100% of non-consenting fans from marketing activations (0 non-consenting fans in 4,831 exports), by implementing time-windowed cart abandonment and deterministic latest-effective consent resolution.**
+4. **Architected an LLM-assisted audience requirement interpreter for a 10,000-profile customer data platform, achieving 100% structured schema compliance and sub-second live latency (977ms) across 10 adversarial test scenarios via live Groq endpoints, strict Pydantic allowlists, and deterministic SQL parameterization that mathematically enforces GDPR/CCPA marketing consent.**
 
 ---
 
 ## Project Documentation Index
 
 - [`PLAN.md`](PLAN.md): Implementation milestone roadmap and acceptance checklist.
-- [`docs/business-requirements.md`](docs/business-requirements.md): Business scenario, requirements matrix, and scope boundaries.
-- [`docs/architecture.md`](docs/architecture.md): Architectural design, data flow diagrams, and design trade-offs.
+- [`docs/requirements.md`](docs/requirements.md): Complete technical requirements matrix (REQ-001 through REQ-020).
+- [`docs/traceability.md`](docs/traceability.md): Requirement-to-test traceability matrix mapping all automated tests & evaluations.
+- [`docs/architecture.md`](docs/architecture.md): System architecture, sequence diagrams, and Architecture Decision Records (ADRs).
+- [`docs/code-walkthrough.md`](docs/code-walkthrough.md): Class responsibilities, OOP encapsulation, Adapter/Strategy patterns, and algorithmic complexity.
+- [`docs/setup.md`](docs/setup.md): Complete reproducible installation, configuration, testing, and teardown runbook.
+- [`docs/troubleshooting.md`](docs/troubleshooting.md): Operational diagnostics, provider error taxonomy, and support runbook.
+- [`docs/demo-guide.md`](docs/demo-guide.md): 3–5 minute technical interview presentation script and fallback mock guide.
+- [`docs/business-requirements.md`](docs/business-requirements.md): Business scenario, core requirements, and governance boundaries.
 - [`docs/data-dictionary.md`](docs/data-dictionary.md): Field-level definitions for all source and persistent PostgreSQL tables.
-- [`docs/segment-rules.md`](docs/segment-rules.md): Explicit qualification criteria, time windows, and boundary logic for all 5 segments.
+- [`docs/segment-rules.md`](docs/segment-rules.md): Explicit qualification criteria, time windows, and boundary logic for all 5 cohorts.
 - [`docs/testing-and-benchmarks.md`](docs/testing-and-benchmarks.md): Guide to automated tests, baseline comparisons, and evidence generation.
-- [`docs/troubleshooting.md`](docs/troubleshooting.md): Diagnostic runbook and step-by-step resolution of data issues.
-- [`docs/demo-script.md`](docs/demo-script.md): Two-minute presentation script and walkthrough.
 - [`docs/interview-preparation.md`](docs/interview-preparation.md): Key technical concepts and defense of architectural trade-offs.
 - [`docs/resume-bullets.md`](docs/resume-bullets.md): Complete XYZ résumé bullets with links to machine-readable evidence.
+- [`artifacts/live-eval-report.md`](artifacts/live-eval-report.md): Reproducible live LLM benchmark report (10/10 passed, 977ms avg latency).
