@@ -1,96 +1,130 @@
 # System Architecture & Technical Design
-## Fan360 — Motorsport Fan Data & Audience Segmentation Platform
+## Fan360 — Motorsport Fan Data & AI Audience Platform
+
+> **Scope & Educational Context**: Fan360 is an educational engineering portfolio project demonstrating enterprise data pipeline design, PySpark distributed aggregations, data quality quarantining, and an AI-assisted audience requirement interpreter.
+> 
+> It is an independent portfolio project and is **not** an official Adobe Experience Platform (AEP) or Real-Time CDP implementation.
+
+---
+
+## 1. End-to-End System Flow
 
 ```mermaid
 flowchart TD
-    subgraph Sources["Raw Data Sources (Synthetic)"]
-        F["fans.csv"]
-        O["orders.csv"]
-        W["web_events.csv"]
-        E["email_events.csv"]
-        C["consent.csv"]
-    end
-
-    subgraph Phase1["Data Quality & Quarantine Engine"]
+    subgraph Ingestion["1. Ingestion & Quality Subsystem"]
+        CSV["Raw CSV Streams (fans, orders, web, email, consent)"]
         VAL["DataValidator (src/pipeline/validation.py)"]
-        DEDUP["Deterministic Deduplication"]
-        QUAR["Quarantine Store (Reason Codes)"]
-        ACC["Accepted Clean Datasets"]
+        DEDUP["Deduplication Engine"]
+        QUAR[("quarantine_records")]
     end
 
-    subgraph Phase2["PySpark Transformation & Enrichment"]
-        SPARK["PySpark Engine (Local Master)"]
-        CONSENT_RES["Consent Resolution (Latest Effective Update)"]
-        ORDER_AGG["Orders & Spend Aggregation (USD)"]
-        ACT_AGG["Last Activity Timeline Aggregation"]
-        SEG_CALC["Audience Segmentation (config/segment_rules.yaml)"]
+    subgraph Transformation["2. PySpark Processing Engine"]
+        SPARK["PySpark Batch Pipeline (src/pipeline/spark_pipeline.py)"]
+        CONSENT_WIN["Windowed Latest-Effective Consent Resolution"]
+        METRICS_AGG["Lifetime Orders & Spend USD Aggregation"]
+        COHORTS["5 Deterministic Cohorts (src/pipeline/segmentation.py)"]
     end
 
-    subgraph Storage["PostgreSQL 16 Database"]
-        TB_RUNS[("pipeline_runs (Audit)")]
-        TB_QUAR[("quarantine_records")]
-        TB_PROF[("fan_profiles")]
-        TB_MEM[("fan_segment_memberships")]
-        TB_ACT[("activation_audiences (Consent OPT_IN)")]
+    subgraph Storage["3. PostgreSQL 16 Storage Layer"]
+        DB_PROF[("fan_profiles")]
+        DB_MEM[("fan_segment_memberships")]
+        DB_ACT[("activation_audiences (Consent OPT_IN)")]
+        DB_RUNS[("pipeline_runs (Audit SHA256)")]
     end
 
-    subgraph Serving["Consumption Layer"]
-        API["FastAPI REST API (Port 8000)"]
-        UI["Streamlit Dashboard (Port 8501)"]
-    end
-
-    Sources --> VAL
-    VAL --> DEDUP
-    VAL --> QUAR
-    VAL --> ACC
-    QUAR --> TB_QUAR
-
-    ACC --> SPARK
-    SPARK --> CONSENT_RES
-    SPARK --> ORDER_AGG
-    SPARK --> ACT_AGG
-    CONSENT_RES & ORDER_AGG & ACT_AGG --> SEG_CALC
-
-    SPARK --> TB_PROF
-    SEG_CALC --> TB_MEM
-    SEG_CALC --> TB_ACT
-    VAL & SPARK --> TB_RUNS
-
-    Storage --> API
-    Storage --> UI
+    CSV --> VAL
+    VAL -->|Defects| QUAR
+    VAL -->|Valid Rows| DEDUP --> SPARK
+    SPARK --> CONSENT_WIN & METRICS_AGG --> COHORTS
+    SPARK --> DB_PROF
+    COHORTS --> DB_MEM & DB_ACT
+    VAL & SPARK --> DB_RUNS
 ```
 
 ---
 
-## 1. Architectural Highlights & Design Patterns
+## 2. AI-Assisted Audience Requirement Interpreter Architecture
 
-### A. Separation of Raw Ingestion, Validation, and Processing
-Raw CSV files are ingested without modifying source state. The `DataValidator` evaluates records before PySpark transformation, ensuring that downstream transformations receive only valid schema-conforming records while defect data is preserved in `quarantine_records` for analysis.
+The audience interpreter enables users to translate natural-language requirements into verified, consent-safe audience previews without writing SQL or exposing customer databases to an LLM.
 
-### B. Hierarchical Defect Triage (Zero Double-Counting)
-When an input row violates multiple rules (e.g. missing fan ID and invalid timestamp), the validator assigns the highest priority reason code:
-1. `MISSING_REQUIRED_FIELD` (Structural prerequisite)
-2. `UNKNOWN_FAN_REFERENCE` (Referential integrity against valid fans)
-3. `INVALID_TIMESTAMP` (Temporal validity up to as-of timestamp)
-4. `INVALID_ORDER_AMOUNT` (Domain boundary: amount > 0)
-5. `INVALID_CONSENT_STATUS` (Enum: OPT_IN / OPT_OUT)
+### 2.1 Request Lifecycle Flow
 
-This hierarchy guarantees strict input reconciliation:
-$$\text{Raw Rows} = \text{Accepted Rows} + \text{Quarantined Rows} + \text{Duplicates Removed}$$
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Technical Consultant / Marketer
+    participant UI as Streamlit Dashboard (tab5)
+    participant API as FastAPI App (/ai/propose, /ai/preview)
+    participant Adapter as BaseLLMAdapter (Live / Mock)
+    participant Schema as Pydantic Validator (ProposedSegment)
+    participant Evaluator as AudienceEvaluator (SQL Query Builder)
+    participant DB as PostgreSQL 16 (fan_profiles)
 
-### C. Latest-Effective-Update Consent Resolution
-Fan consent changes over time. To avoid race conditions:
-- Updates are filtered up to `as_of_timestamp`.
-- Sorted by `update_timestamp DESC, consent_id DESC`.
-- The top record determines current consent.
-- Fans with no consent records default to `NONE`.
-- Marketing activation views strictly filter for `OPT_IN`. Missing or ambiguous consent strictly denies activation eligibility.
+    User->>UI: Enter prompt (e.g. "Repeat buyers in USA")
+    UI->>API: POST /ai/propose {query: "..."}
+    Note over API,Adapter: Zero customer PII or DB data is sent
+    API->>Adapter: interpret_request(user_query)
+    Adapter->>Schema: Parse & Validate against ProposedSegment
+    Schema-->>Adapter: Validated proposal / clarification flag
+    Adapter-->>API: (proposal, mode, metadata)
+    API-->>UI: AIProposeResponse (HTTP 200)
+    
+    Note over UI,User: Step 2: User reviews and edits thresholds
+    User->>UI: Inspect filters & click "Preview Audience"
+    UI->>API: POST /ai/preview {segment: proposal, limit: 10}
+    
+    API->>Schema: Revalidate client payload against ProposedSegment
+    API->>Evaluator: evaluate_preview(proposal, limit)
+    Note over Evaluator: Build parameterized SQL with mandatory consent
+    Evaluator->>DB: SELECT count(*), sample profiles WHERE filters AND consent='OPT_IN'
+    DB-->>Evaluator: Return aggregated counts & sample profiles
+    Evaluator-->>API: {total_matched, consent_eligible, preview_profiles}
+    API-->>UI: Return preview payload
+    UI-->>User: Display total matches vs consent-eligible activations
+```
 
-### D. Idempotent Storage Architecture
-All persistent tables feature deterministic primary or composite keys:
-- `fan_profiles`: `PRIMARY KEY (fan_id)`
-- `fan_segment_memberships`: `PRIMARY KEY (fan_id, segment_code)`
-- `activation_audiences`: `PRIMARY KEY (fan_id, segment_code, last_run_id)`
-- `pipeline_runs`: `PRIMARY KEY (run_id)`
+---
 
-PostgreSQL `ON CONFLICT DO UPDATE` guarantees that re-running the pipeline on unchanged data leaves database row counts and logical states identical.
+## 3. Architecture Decision Records (ADRs)
+
+### ADR-1: Proposing Structured Filters Rather Than Raw SQL
+- **Context**: LLMs can generate raw SQL, but raw SQL generated by an LLM poses critical security and reliability vulnerabilities (SQL injection, schema hallucination, unconstrained joins, and non-deterministic execution).
+- **Decision**: The LLM is restricted to proposing structured JSON conforming to [`ProposedSegment`](file:///Users/tejashr/Downloads/adobe/src/ai/schema.py#L168) containing allowlisted fields, operators, and typed arguments.
+- **Consequence**: The LLM acts purely as a semantic translator. Execution is handed off to deterministic application code, completely preventing SQL injection.
+
+### ADR-2: Untrusted Model Output & Strict Allowlist Boundaries
+- **Context**: LLM output is non-deterministic and can generate hallucinated attributes (e.g. `credit_score`, `age`, `net_worth`) or unsupported operators (`LIKE`, `REGEX`).
+- **Decision**: In [`src/ai/schema.py`](file:///Users/tejashr/Downloads/adobe/src/ai/schema.py#L15), every filter is validated against `ALLOWLISTED_FIELDS`. Unknown attributes, invalid types, or extra properties are immediately rejected via `extra="forbid"`.
+- **Consequence**: Only pre-approved database columns derived directly from the application schema can ever be queried.
+
+### ADR-3: Preview-Time Revalidation Against Client-Side Tampering
+- **Context**: After the proposal is rendered in the UI, an attacker or compromised client could modify the payload sent to `POST /ai/preview` to bypass validation.
+- **Decision**: In [`src/api/app.py`](file:///Users/tejashr/Downloads/adobe/src/api/app.py#L400), the incoming segment in `AIPreviewRequest` is re-validated through Pydantic's `ProposedSegment` before reaching the query generator.
+- **Consequence**: Guarantees that manually tampered JSON payloads cannot inject arbitrary operators or unallowlisted fields.
+
+### ADR-4: Inert SQL Parameterization
+- **Context**: Attribute filter values (such as strings or names) could contain SQL syntax fragments (e.g. `Lucas'; DROP TABLE fan_profiles; --`).
+- **Decision**: In [`AudienceEvaluator._build_query()`](file:///Users/tejashr/Downloads/adobe/src/ai/evaluator.py#L38), all filter values are passed as positional parameters (`%s` placeholders in `psycopg2`).
+- **Consequence**: Values are escaped and bound as inert literals by the PostgreSQL client driver. Direct string concatenation of filter values is strictly prohibited.
+
+### ADR-5: Mandatory Marketing Consent Segregation
+- **Context**: In enterprise customer marketing (GDPR, CCPA), targeting criteria (e.g., fans with 2 orders) must never override customer communication preferences. If an LLM is asked to *"export everyone without consent"*, the system must remain consent-safe.
+- **Decision**: Consent is **not** an attribute filter that the LLM decides. In [`AudienceEvaluator.evaluate_preview()`](file:///Users/tejashr/Downloads/adobe/src/ai/evaluator.py#L65), the SQL query calculates:
+  1. `total_matched`: Total profiles satisfying behavioral filters.
+  2. `consent_eligible`: Total profiles satisfying behavioral filters **AND** `marketing_consent_status = 'OPT_IN'`.
+- **Consequence**: Non-consenting fans are mathematically excluded from activation lists, regardless of the user's natural language prompt.
+
+### ADR-6: Provider Strategy & Zero-Silent-Fallback Enforcement
+- **Context**: Silent fallback from a live model to a mock provider masks configuration errors, outages, or expired API keys, creating false confidence in test and production runs.
+- **Decision**: In [`src/ai/provider.py`](file:///Users/tejashr/Downloads/adobe/src/ai/provider.py#L475), the `get_llm_adapter()` factory enforces explicit modes (`LLM_MODE=mock` or `LLM_MODE=live`). If `live` mode is requested and `LLM_API_KEY` is missing, it raises [`ConfigurationError`](file:///Users/tejashr/Downloads/adobe/src/ai/provider.py#L32) and maps to HTTP 503.
+- **Consequence**: Zero silent fallbacks. Operational failures are transparently surfaced.
+
+### ADR-7: Zero Customer Data Transmission (Privacy Boundary)
+- **Context**: Enterprise privacy rules prohibit transmitting customer PII, raw records, or customer IDs to third-party LLM providers.
+- **Decision**: The system prompt and user message sent to the LLM contain **only** the allowable schema definitions and the user's prompt string. Zero database rows, profile records, or connection strings are ever sent over the network.
+- **Consequence**: Full privacy preservation by design.
+
+### ADR-8: Domain Error Taxonomy & Propagation
+- **Context**: Upstream provider failures (HTTP 401, 429, timeouts, malformed JSON) must be translated into actionable operational feedback rather than opaque internal server errors (HTTP 500).
+- **Decision**: Custom domain exceptions ([`AuthenticationError`](file:///Users/tejashr/Downloads/adobe/src/ai/provider.py#L37), [`RateLimitError`](file:///Users/tejashr/Downloads/adobe/src/ai/provider.py#L42), [`ProviderTimeoutError`](file:///Users/tejashr/Downloads/adobe/src/ai/provider.py#L52), [`ProviderPayloadError`](file:///Users/tejashr/Downloads/adobe/src/ai/provider.py#L57)) are caught in FastAPI and mapped to HTTP 502 Bad Gateway with diagnostic error details.
+- **Consequence**: Clean operational visibility in logs and UI.

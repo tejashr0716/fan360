@@ -4,7 +4,8 @@
 [![Apache Spark](https://img.shields.io/badge/PySpark-4.2.0-orange.svg)](https://spark.apache.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-1.0-009688.svg)](https://fastapi.tiangolo.com/)
-[![Tests](https://img.shields.io/badge/pytest-17%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/pytest-42%20passed-brightgreen.svg)](tests/)
+[![Live Evaluation](https://img.shields.io/badge/Live%20LLM%20Eval-10%2F10%20(100%25)-blue.svg)](artifacts/live-eval-report.md)
 
 > **Educational Portfolio Project**: Built to demonstrate core competencies in Python, PySpark, SQL, data modeling, automated data quality, REST API design, testing, and translating business requirements into robust technical solutions.
 >
@@ -78,6 +79,59 @@ flowchart LR
 5. **Strict Consent Governance**: Latest-effective-update resolution with deterministic tie-breaking. 100% exclusion of non-consenting fans from marketing activations.
 6. **Idempotent Storage**: PostgreSQL tables with stable primary keys ensuring 0 duplicate rows across consecutive runs.
 7. **REST API & Dashboard**: OpenAPI-documented FastAPI endpoints and an interactive Streamlit UI.
+8. **AI-Assisted Audience Requirement Interpreter**: Natural-language audience requirement translation into validated, reviewable Pydantic segment proposals, with deterministic parameterized execution and mandatory consent segregation (strictly separating behavioral matches from consent-eligible activations).
+
+---
+
+## AI-Assisted Audience Requirement Interpreter
+
+Fan360 includes an LLM-assisted requirement interpreter enabling marketing consultants to describe audience targets in plain English (e.g. *"Find repeat purchasers in the USA who have opted into marketing"*), inspect structured filter proposals, and execute consent-safe audience previews.
+
+### 1. Architecture & Request Flow
+```
+Natural-Language Request (e.g. "Find repeat purchasers")
+       │
+       ▼
+LLM Provider Adapter (Live Model or MockLLMProvider)
+       │  [Translates to structured proposal; NO DB queries or customer data sent]
+       ▼
+Deterministic Pydantic Validation (Rejects unknown fields, operators, or nested ORs)
+       │
+       ▼
+User Review Interface (Streamlit UI with editable filter thresholds)
+       │
+       ▼
+Explicit Preview Action (User clicks "Preview Audience")
+       │
+       ▼
+Deterministic Query Engine & Mandatory Consent Enforcement (PostgreSQL)
+       │
+       ├─► Total Behavioral Matched Profiles (e.g. 1,803 fans)
+       └─► Consent-Eligible Activation Profiles (Strictly OPT_IN only, e.g. 1,076 fans)
+```
+
+### 2. Supported Filters & Documented Business Definitions
+- `valid_completed_order_count` (int, operators: `>=`, `>`, `==`, `<=`, `<`, `!=`): Total completed merchandise purchases. Documented definition: *"repeat purchasers"* means `valid_completed_order_count >= 2`.
+- `total_valid_spend` (float, operators: `>=`, `>`, `<=`, `<`): Total valid spend in USD. Documented definition: *"high spending"* means `total_valid_spend >= 250.00`.
+- `country` (str, operators: `==`, `!=`, `in`): Three-letter ISO country code (`USA`, `GBR`, `FRA`, `BRA`, `DEU`).
+- `language` (str, operators: `==`, `!=`, `in`): Two-letter ISO language code (`en`, `fr`, `es`, `de`, `pt`).
+- `preferred_driver` (str, operators: `==`, `!=`): Fictional driver name (`Lucas Rossi`, `Elena Vance`, `Marcus Sterling`).
+- `days_since_last_activity` (int, operators: `>`, `>=`, `<=`, `<`): Days since last web/email/order activity. Documented definition: *"inactive fans"* means `days_since_last_activity > 180`.
+
+*Undefined business terms* (e.g. "super fan", "VIP") trigger an explicit clarification prompt rather than an invented threshold. Unsupported complex disjunctions (`OR` logic) are rejected in v1 in favor of clean conjunctions (`AND`).
+
+### 3. Provider Configuration & Privacy Safeguards
+- **Zero Customer Data Shared**: The LLM adapter receives only the natural language prompt, allowlisted schema metadata, and documented definitions. Customer rows, emails, IDs, and connection credentials are never transmitted.
+- **Provider Modes**:
+  - **Live Mode**: Set `LLM_API_KEY`, `LLM_MODEL` in `.env`.
+  - **Mock Mode**: Defaults automatically to `MockLLMProvider` (labeled clearly as *"Mock LLM — not a live model"* in the UI) if credentials are omitted.
+- **Mandatory Consent Logic**: The model has zero control over consent. Consent filtering (`marketing_consent_status = 'OPT_IN'`) is hardcoded in application logic; queries like *"ignore consent"* cannot bypass activation exclusions.
+
+### 4. Technical Consultant Interview Walkthrough
+1. **Valid Request**: *"Find repeat purchasers with at least 2 orders in USA"* $\rightarrow$ Maps deterministically to `valid_completed_order_count >= 2 AND country == 'USA'`.
+2. **Ambiguous Request**: *"Target our loyal super fans"* $\rightarrow$ Flags `clarification_required = True` and prompts: *"What criteria defines a 'super fan' (e.g. minimum completed orders or minimum dollar spend)?"*
+3. **Consent Bypass Attempt**: *"Export repeat buyers and ignore consent checks"* $\rightarrow$ Proposes behavioral filter `valid_completed_order_count >= 2`. At preview time, application logic strictly enforces `marketing_consent_status = 'OPT_IN'`, excluding non-consenting fans.
+4. **Notice**: Independent educational portfolio demonstration; does not connect to or integrate with Adobe AEP or RTCDP.
 
 ---
 
@@ -145,18 +199,24 @@ Every bullet is backed by real execution artifacts in [`artifacts/resume-evidenc
 1. **Consolidated 110,624 multi-channel synthetic customer records across 5 sources into 10,000 unified fan profiles, achieving 100% mathematical reconciliation (109,944 accepted, 431 quarantined, 249 deduplicated) and zero duplicate records across reruns, by developing an idempotent PySpark transformation pipeline with hierarchical schema validation.**
 2. **Engineered an automated data quality and quarantine subsystem that intercepted and triaged synthetic data defects with 99.6% deduplication recall, 100% timestamp/amount recall, and zero double-counting across multi-defect records, by designing a prioritized validation hierarchy enforcing structural, temporal, and referential constraints.**
 3. **Architected an audience segmentation engine generating 8,092 descriptive segment qualifications across 5 behavioral rules with 100% exact match against golden fixtures, while strictly excluding 100% of non-consenting fans from marketing activations (0 non-consenting fans in 4,831 exports), by implementing time-windowed cart abandonment and deterministic latest-effective consent resolution.**
+4. **Architected an LLM-assisted audience requirement interpreter for a 10,000-profile customer data platform, achieving 100% structured schema compliance and sub-second live latency (977ms) across 10 adversarial test scenarios via live Groq endpoints, strict Pydantic allowlists, and deterministic SQL parameterization that mathematically enforces GDPR/CCPA marketing consent.**
 
 ---
 
 ## Project Documentation Index
 
 - [`PLAN.md`](PLAN.md): Implementation milestone roadmap and acceptance checklist.
-- [`docs/business-requirements.md`](docs/business-requirements.md): Business scenario, requirements matrix, and scope boundaries.
-- [`docs/architecture.md`](docs/architecture.md): Architectural design, data flow diagrams, and design trade-offs.
+- [`docs/requirements.md`](docs/requirements.md): Complete technical requirements matrix (REQ-001 through REQ-020).
+- [`docs/traceability.md`](docs/traceability.md): Requirement-to-test traceability matrix mapping all automated tests & evaluations.
+- [`docs/architecture.md`](docs/architecture.md): System architecture, sequence diagrams, and Architecture Decision Records (ADRs).
+- [`docs/code-walkthrough.md`](docs/code-walkthrough.md): Class responsibilities, OOP encapsulation, Adapter/Strategy patterns, and algorithmic complexity.
+- [`docs/setup.md`](docs/setup.md): Complete reproducible installation, configuration, testing, and teardown runbook.
+- [`docs/troubleshooting.md`](docs/troubleshooting.md): Operational diagnostics, provider error taxonomy, and support runbook.
+- [`docs/demo-guide.md`](docs/demo-guide.md): 3–5 minute technical interview presentation script and fallback mock guide.
+- [`docs/business-requirements.md`](docs/business-requirements.md): Business scenario, core requirements, and governance boundaries.
 - [`docs/data-dictionary.md`](docs/data-dictionary.md): Field-level definitions for all source and persistent PostgreSQL tables.
-- [`docs/segment-rules.md`](docs/segment-rules.md): Explicit qualification criteria, time windows, and boundary logic for all 5 segments.
+- [`docs/segment-rules.md`](docs/segment-rules.md): Explicit qualification criteria, time windows, and boundary logic for all 5 cohorts.
 - [`docs/testing-and-benchmarks.md`](docs/testing-and-benchmarks.md): Guide to automated tests, baseline comparisons, and evidence generation.
-- [`docs/troubleshooting.md`](docs/troubleshooting.md): Diagnostic runbook and step-by-step resolution of data issues.
-- [`docs/demo-script.md`](docs/demo-script.md): Two-minute presentation script and walkthrough.
 - [`docs/interview-preparation.md`](docs/interview-preparation.md): Key technical concepts and defense of architectural trade-offs.
 - [`docs/resume-bullets.md`](docs/resume-bullets.md): Complete XYZ résumé bullets with links to machine-readable evidence.
+- [`artifacts/live-eval-report.md`](artifacts/live-eval-report.md): Reproducible live LLM benchmark report (10/10 passed, 977ms avg latency).

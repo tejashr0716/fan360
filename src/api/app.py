@@ -18,6 +18,17 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from src.pipeline.db_loader import DatabaseLoader
+from src.ai.schema import ProposedSegment
+from src.ai.provider import (
+    AuthenticationError,
+    ConfigurationError,
+    ProviderPayloadError,
+    ProviderRefusalError,
+    ProviderTimeoutError,
+    RateLimitError,
+    get_llm_adapter,
+)
+from src.ai.evaluator import AudienceEvaluator
 
 app = FastAPI(
     title="Fan360 — Motorsport Fan Data & Audience Segmentation API",
@@ -228,12 +239,14 @@ def get_segment_members(
 
     if activation_only:
         where_clauses.append("m.activation_eligible = 1")
+        where_clauses.append("p.marketing_consent_status = 'OPT_IN'")
 
     where_sql = " AND ".join(where_clauses)
 
     count_sql = f"""
         SELECT COUNT(*) AS total
         FROM fan_segment_memberships m
+        JOIN fan_profiles p ON m.fan_id = p.fan_id
         WHERE {where_sql};
     """
 
@@ -347,3 +360,71 @@ def list_runs(limit: int = 10) -> List[Dict[str, Any]]:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(sql, (limit,))
             return [dict(r) for r in cur.fetchall()]
+
+
+# --- AI Audience Builder Routes ---
+
+class AIProposeRequest(BaseModel):
+    query: str
+
+
+class AIProposeResponse(BaseModel):
+    proposal: ProposedSegment
+    provider_mode: str
+
+
+class AIPreviewRequest(BaseModel):
+    segment: ProposedSegment
+    limit: int = 10
+
+
+ai_evaluator = AudienceEvaluator(db_loader)
+
+
+@app.post("/ai/propose", response_model=AIProposeResponse, tags=["AI Audience Builder"])
+def propose_audience(req: AIProposeRequest) -> AIProposeResponse:
+    """
+    Translates natural-language audience requirements into a validated, reviewable
+    structured segment proposal using an LLM adapter.
+    Does NOT query customer rows, execute SQL, or mutate database state.
+    """
+    try:
+        adapter = get_llm_adapter()
+        proposal, mode, metadata = adapter.interpret_request(req.query)
+        return AIProposeResponse(proposal=proposal, provider_mode=mode)
+    except ConfigurationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"LLM Configuration Error: {str(e)}",
+        )
+    except (AuthenticationError, RateLimitError, ProviderRefusalError, ProviderTimeoutError, ProviderPayloadError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Live LLM Provider Error: {str(e)}",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"LLM interpretation error: {str(e)}")
+
+
+@app.post("/ai/preview", tags=["AI Audience Builder"])
+def preview_audience(req: AIPreviewRequest) -> Dict[str, Any]:
+    """
+    Revalidates the structured segment definition at preview time and safely executes
+    read-only parameterized queries with mandatory consent segregation.
+    Returns matched count vs consent-eligible count and sample profiles.
+    """
+    try:
+        as_of_ts = db_loader.config.get("pipeline", {}).get("as_of_timestamp", "2026-10-01T00:00:00Z")
+        result = ai_evaluator.evaluate_preview(
+            segment=req.segment,
+            as_of_timestamp=as_of_ts,
+            preview_limit=req.limit,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Audience preview failed: {str(e)}")
+

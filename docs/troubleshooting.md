@@ -1,75 +1,135 @@
-# Troubleshooting & Operations Guide
-## Fan360 Common Issues and Diagnostic Runbook
+# Troubleshooting & Operations Runbook
+## Fan360 Diagnostic Procedures & Support Guidelines
+
+> **Educational Context**: This runbook provides diagnostic workflows for common runtime defects, provider exceptions, and data quality scenarios in Fan360.
+> 
+> *Classification Note*: Scenarios marked **[Exercised]** were actively reproduced and tested during automated test suite execution. Scenarios marked **[Runbook Only]** represent standard defensive operational guidance.
 
 ---
 
-## 1. Environment & Runtime Issues
+## 1. AI Audience Interpreter Issues
 
-### Issue 1: Java Version or JVM Module Warnings
-- **Symptoms**: Warnings such as `Using incubator modules: jdk.incubator.vector` or `package sun.security.action not in java.base` when starting PySpark.
-- **Root Cause**: Modern OpenJDK (versions 21 through 25) enforce stricter module encapsulation.
-- **Resolution**: These are standard JDK warnings that do not prevent execution. Fan360 configures Spark local sessions to suppress noisy log4j levels (`log_level: WARN`). If running in production or Docker, use OpenJDK 17 LTS.
-
-### Issue 2: PostgreSQL Connection Refused
-- **Symptoms**: `psycopg2.OperationalError: could not connect to server: Connection refused`.
-- **Diagnosis**:
+### 1.1 Missing or Unconfigured Credentials (`ConfigurationError`) [Exercised]
+- **Symptom**: 
+  - CLI: `[BLOCKED] Live verification could not proceed: Live LLM mode requested (LLM_MODE=live), but LLM_API_KEY environment variable is not configured.`
+  - API: HTTP `503 Service Unavailable` with detail `"LLM Configuration Error: ..."`.
+- **Diagnostic Steps**:
   ```bash
-  psql -U tejashr -d fan360 -c "SELECT 1;"
+  python -c 'import os; print("LLM_MODE:", os.getenv("LLM_MODE"), "| KEY SET:", bool(os.getenv("LLM_API_KEY")))'
   ```
-- **Resolution**:
-  - Check if local PostgreSQL is running:
-    ```bash
-    brew services list
-    brew services start postgresql@16
-    ```
-  - Verify database credentials in `config/config.yaml` or set environment variables:
-    ```bash
-    export FAN360_DB_HOST=localhost
-    export FAN360_DB_PORT=5432
-    export FAN360_DB_NAME=fan360
-    export FAN360_DB_USER=$(whoami)
-    ```
+- **Likely Causes**:
+  - `LLM_MODE=live` was exported, but `LLM_API_KEY` was not exported or is empty string.
+  - Typo in environment variable name (`API_KEY` instead of `LLM_API_KEY`).
+- **Recovery**:
+  - For live execution: `export LLM_API_KEY="your_actual_key"`
+  - For offline mock execution: `export LLM_MODE="mock"`
+- **Verification**: Run `python -c "from src.ai.provider import get_llm_adapter; get_llm_adapter()"`.
+- **Sanitized Info to Collect**: Model name (`LLM_MODEL`), provider base URL (`LLM_BASE_URL`), and exit code. **Never print or log the key value.**
 
 ---
 
-## 2. Sample Data Quality Issue & Step-by-Step Diagnosis
-
-### Scenario: Marketing team reports that a known high-value fan (`FAN_000045`) is missing from the "High-Spending Buyers" activation export.
-
-### Diagnostic Steps:
-1. **Check if the fan exists in consolidated profiles**:
-   ```bash
-   curl -s http://127.0.0.1:8000/fans/FAN_000045 | jq .
-   ```
-   *Observation*: `total_valid_spend` is \$140.00, below the \$250.00 threshold, but marketing claims the fan spent \$340.00.
-
-2. **Query quarantined records for this fan's orders**:
-   ```sql
-   SELECT source_table, record_id, reason_code, raw_payload
-   FROM quarantine_records
-   WHERE raw_payload->>'fan_id' = 'FAN_000045';
-   ```
-   *Findings*:
-   - Row 1: `order_id = ORD_000120`, `reason_code = 'INVALID_ORDER_AMOUNT'`. Payload shows `order_amount = -200.00`.
-   - The merchandise store ingested a refund/chargeback as a negative raw amount rather than a return event.
-   - The validation engine correctly quarantined the record before it could distort spend calculations.
-
-3. **Check consent status**:
-   *Observation*: `marketing_consent_status` is `OPT_OUT`. Even if total valid spend exceeded \$250, the fan is legally excluded from campaign activation under internal data governance policy.
-
-4. **Resolution**:
-   - Upstream order integration must categorize returns separately from gross spend.
-   - Clarify to marketing that consent exclusion protects customer privacy and brand reputation.
+### 1.2 Invalid API Key / HTTP 401 (`AuthenticationError`) [Exercised]
+- **Symptom**: API returns HTTP `502 Bad Gateway` with `"Live LLM provider rejected API key (HTTP 401 Unauthorized)"`.
+- **Diagnostic Steps**:
+  - Test connectivity with a minimal curl request omitting headers from logs:
+    ```bash
+    curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $LLM_API_KEY" https://api.groq.com/openai/v1/models
+    ```
+- **Likely Causes**:
+  - Revoked, expired, or mistyped API key.
+  - Trailing newline or whitespace in the key string.
+- **Recovery**:
+  - Regenerate key in provider console (e.g., [console.groq.com](https://console.groq.com)).
+  - Re-export with `strip()`: `export LLM_API_KEY="$(echo -n 'gsk_...' | xargs)"`.
+- **Verification**: Run `python scripts/eval_ai_audience.py --live`.
 
 ---
 
-## 3. Data Reconciliation Discrepancy Diagnosis
-If the pipeline reports `reconciliation_status: DISCREPANCY`:
-1. Check table-by-table counts in `pipeline_runs.audit_details`:
-   ```sql
-   SELECT run_id, reconciliation_status, audit_details
-   FROM pipeline_runs
-   ORDER BY started_at DESC LIMIT 1;
-   ```
-2. Verify if any duplicate rows were counted as quarantined:
-   - Deduplication must be tracked in `duplicates_removed` and excluded from `quarantine_records` to prevent double-counting.
+### 1.3 Provider Rate Limit / HTTP 429 (`RateLimitError`) [Exercised]
+- **Symptom**: API returns HTTP `502 Bad Gateway` with `"Live LLM provider rate limit / quota exceeded (HTTP 429)"`.
+- **Diagnostic Steps**:
+  - Inspect response header retry indicators (`retry-after` header).
+  - Check provider console dashboard for Output Tokens Per Minute (OTPM) or Requests Per Minute (RPM).
+- **Likely Causes**:
+  - Small model tiers (e.g. `qwen/qwen3.8-27b`) on free tier often have low output token limits (e.g. 1,000 OTPM).
+  - Rapid parallel execution of multiple queries.
+- **Recovery**:
+  - Switch to a model with higher capacity limits (e.g. `openai/gpt-oss-120b`).
+  - Introduce brief sleep intervals between batch requests in script.
+- **Verification**: Re-run evaluation suite; verify latency and HTTP 200 responses.
+
+---
+
+### 1.4 Provider Timeout / Network Unreachable (`ProviderTimeoutError`) [Exercised]
+- **Symptom**: Request hangs for 10 seconds and raises `ProviderTimeoutError: Live LLM request timed out after 10.0s`.
+- **Diagnostic Steps**:
+  - Check general internet connectivity: `ping -c 3 api.groq.com`.
+  - Check DNS resolution: `nslookup api.groq.com`.
+- **Likely Causes**:
+  - Egress firewall blocking outbound port 443.
+  - Transient provider degradation.
+- **Recovery**:
+  - Check provider status page.
+  - Increase timeout temporarily if network is high-latency: `LiveLLMProvider(..., timeout_seconds=20.0)`.
+  - Fall back explicitly to mock mode: `export LLM_MODE=mock`.
+
+---
+
+### 1.5 Model Output Violates Pydantic Schema (`ProviderPayloadError`) [Exercised]
+- **Symptom**: API returns HTTP `502 Bad Gateway` with `"Model output violates strict application schema"`.
+- **Diagnostic Steps**:
+  - Inspect application server logs for specific Pydantic validation error (e.g., `Value error, Operator 'gte' is unsupported`).
+- **Likely Causes**:
+  - Small or unaligned model hallucinated an unsupported operator (`LIKE`, `gte`) or unlisted field (`credit_score`).
+  - Model response truncated by output token limits (`finish_reason="length"`).
+- **Recovery**:
+  - Ensure system prompt contains the explicit JSON schema with allowlisted fields.
+  - Pre-validate and normalize common mathematical aliases (e.g. `gte` -> `>=`).
+- **Verification**: Run unit tests: `pytest tests/test_ai_audience.py -k test_live_provider_violates_pydantic_schema_error`.
+
+---
+
+## 2. Data Pipeline & Database Operational Issues
+
+### 2.1 PostgreSQL Connection Refused [Runbook Only]
+- **Symptom**: `psycopg2.OperationalError: could not connect to server: Connection refused`.
+- **Diagnostic Steps**:
+  ```bash
+  pg_isready -h localhost -p 5432
+  psql -h localhost -U postgres -d fan360 -c "SELECT 1;"
+  ```
+- **Likely Causes**:
+  - Local PostgreSQL daemon is stopped or not running on port 5432.
+- **Recovery**:
+  ```bash
+  brew services start postgresql@16
+  ```
+
+---
+
+### 2.2 Unexpected Low Consent-Eligible Count [Exercised]
+- **Symptom**: User observes `1076/1803 eligible` for repeat purchasers, asking why 727 matching fans are excluded from marketing preview.
+- **Diagnostic Steps**:
+  - Query database directly to inspect consent distribution of matching fans:
+    ```sql
+    SELECT marketing_consent_status, COUNT(*)
+    FROM fan_profiles
+    WHERE valid_completed_order_count >= 2
+    GROUP BY marketing_consent_status;
+    ```
+- **Findings**:
+  - The 727 excluded fans have `marketing_consent_status` of `OPT_OUT` or `NONE`.
+  - **This is expected and correct behavior**: The system mathematically enforces consent segregation. Qualifying on behavior does not grant permission to contact.
+
+---
+
+### 2.3 Empty Audience Preview Result (`0 matches`) [Exercised]
+- **Symptom**: Preview returns `0 matches` for a seemingly common query (e.g. "Fans in Spain").
+- **Diagnostic Steps**:
+  - Check the generated SQL query and parameter tuple in application logs.
+  - Verify country code formatting: ISO-3 code for Spain is `ESP`, not `SPA`.
+- **Likely Causes**:
+  - Mismatched categorical values (e.g. full country names vs ISO-3 alpha codes).
+  - Overly restrictive conjunctive filters (e.g. spend > $10,000 AND order count = 0).
+- **Recovery**:
+  - Use editable review controls in the dashboard to relax thresholds or check supported ISO codes.

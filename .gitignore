@@ -15,3 +15,8 @@ spark-warehouse/
 data/raw/
 data/processed/
 data/quarantine/
+contentforge
+.env
+*.env
+.env.*
+
